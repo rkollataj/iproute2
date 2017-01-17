@@ -112,6 +112,8 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
 {
 	struct can_bittiming bt = {}, dbt = {};
 	struct can_ctrlmode cm = {0, 0};
+	__u16 trm = 0;
+	bool trm_set = false;
 
 	while (argc > 0) {
 		if (matches(*argv, "bitrate") == 0) {
@@ -220,6 +222,11 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
 			if (get_u32(&val, *argv, 0))
 				invarg("invalid \"restart-ms\" value\n", *argv);
 			addattr32(n, 1024, IFLA_CAN_RESTART_MS, val);
+		} else if (matches(*argv, "termination") == 0) {
+			NEXT_ARG();
+			trm_set = true;
+			if (get_u16(&trm, *argv, 0))
+				invarg("invalid \"termination\" value\n", *argv);
 		} else if (matches(*argv, "help") == 0) {
 			usage();
 			return -1;
@@ -237,6 +244,8 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
 		addattr_l(n, 1024, IFLA_CAN_DATA_BITTIMING, &dbt, sizeof(dbt));
 	if (cm.mask)
 		addattr_l(n, 1024, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
+	if (trm_set)
+		addattr16(n, 1024, IFLA_CAN_TERMINATION, trm);
 
 	return 0;
 }
@@ -326,12 +335,24 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 			dbtc->brp_min, dbtc->brp_max, dbtc->brp_inc);
 	}
 
+	if (tb[IFLA_CAN_TERMINATION_CONST] && tb[IFLA_CAN_TERMINATION]) {
+		__u16 *trm = RTA_DATA(tb[IFLA_CAN_TERMINATION]);
+		__u16 *trm_const = RTA_DATA(tb[IFLA_CAN_TERMINATION_CONST]);
+		int i, trm_cnt = RTA_PAYLOAD(tb[IFLA_CAN_TERMINATION_CONST]) / sizeof(*trm_const);
+		
+		fprintf(f, "\n	  termination %hu [", *trm);
+
+		for (i = 0; i < trm_cnt - 1; ++i)
+			fprintf(f, "%hu, ", trm_const[i]);
+
+		fprintf(f, "%hu]", trm_const[trm_cnt]);
+	}
+
 	if (tb[IFLA_CAN_CLOCK]) {
 		struct can_clock *clock = RTA_DATA(tb[IFLA_CAN_CLOCK]);
 
 		fprintf(f, "\n	  clock %d", clock->freq);
 	}
-
 }
 
 static void can_print_xstats(struct link_util *lu,
