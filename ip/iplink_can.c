@@ -345,7 +345,7 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 		for (i = 0; i < trm_cnt - 1; ++i)
 			fprintf(f, "%hu, ", trm_const[i]);
 
-		fprintf(f, "%hu]", trm_const[trm_cnt]);
+		fprintf(f, "%hu]", trm_const[i]);
 	}
 
 	if (tb[IFLA_CAN_CLOCK]) {
