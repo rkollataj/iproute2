@@ -291,7 +291,8 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 		fprintf(f, "restart-ms %d ", *restart_ms);
 	}
 
-	if (tb[IFLA_CAN_BITTIMING]) {
+	/* bittiming const is irrelevant if fixed bitrate is defined */
+	if (tb[IFLA_CAN_BITTIMING] && !tb[IFLA_CAN_BITRATE_CONST]) {
 		struct can_bittiming *bt = RTA_DATA(tb[IFLA_CAN_BITTIMING]);
 
 		fprintf(f, "\n	  bitrate %d sample-point %.3f ",
@@ -301,7 +302,8 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 			bt->sjw);
 	}
 
-	if (tb[IFLA_CAN_BITTIMING_CONST]) {
+	/* bittiming const is irrelevant if fixed bitrate is defined */
+	if (tb[IFLA_CAN_BITTIMING_CONST] && !tb[IFLA_CAN_BITRATE_CONST]) {
 		struct can_bittiming_const *btc =
 			RTA_DATA(tb[IFLA_CAN_BITTIMING_CONST]);
 
@@ -312,7 +314,28 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 			btc->brp_min, btc->brp_max, btc->brp_inc);
 	}
 
-	if (tb[IFLA_CAN_DATA_BITTIMING]) {
+	if (tb[IFLA_CAN_BITRATE_CONST]) {
+		__u32 *bitrate_const = RTA_DATA(tb[IFLA_CAN_BITRATE_CONST]);
+		int i, bitrate_cnt = RTA_PAYLOAD(tb[IFLA_CAN_BITRATE_CONST]) /
+				     sizeof(*bitrate_const);
+		__u32 bitrate = 0;
+
+		if (tb[IFLA_CAN_BITTIMING]) {
+			struct can_bittiming *bt =
+			    RTA_DATA(tb[IFLA_CAN_BITTIMING]);
+			bitrate = bt->bitrate;
+		}
+
+		fprintf(f, "\n	  bitrate %u [", bitrate);
+
+		for (i = 0; i < bitrate_cnt - 1; ++i)
+			fprintf(f, "%u, ", bitrate_const[i]);
+
+		fprintf(f, "%u]", bitrate_const[i]);
+	}
+
+	/* data bittiming const is irrelevant if fixed bitrate is defined */
+	if (tb[IFLA_CAN_DATA_BITTIMING] && !tb[IFLA_CAN_DATA_BITRATE_CONST]) {
 		struct can_bittiming *dbt =
 			RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING]);
 
@@ -324,22 +347,47 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 			dbt->phase_seg2, dbt->sjw);
 	}
 
-	if (tb[IFLA_CAN_DATA_BITTIMING_CONST]) {
+	/* data bittiming const is irrelevant if fixed bitrate is defined */
+	if (tb[IFLA_CAN_DATA_BITTIMING_CONST] &&
+	    !tb[IFLA_CAN_DATA_BITRATE_CONST]) {
 		struct can_bittiming_const *dbtc =
-			RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING_CONST]);
+		    RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING_CONST]);
 
 		fprintf(f, "\n	  %s: dtseg1 %d..%d dtseg2 %d..%d "
-			"dsjw 1..%d dbrp %d..%d dbrp-inc %d",
+			   "dsjw 1..%d dbrp %d..%d dbrp-inc %d",
 			dbtc->name, dbtc->tseg1_min, dbtc->tseg1_max,
 			dbtc->tseg2_min, dbtc->tseg2_max, dbtc->sjw_max,
 			dbtc->brp_min, dbtc->brp_max, dbtc->brp_inc);
 	}
 
+	if (tb[IFLA_CAN_DATA_BITRATE_CONST]) {
+		__u32 *dbitrate_const =
+		    RTA_DATA(tb[IFLA_CAN_DATA_BITRATE_CONST]);
+		int i, dbitrate_cnt =
+			   RTA_PAYLOAD(tb[IFLA_CAN_DATA_BITRATE_CONST]) /
+			   sizeof(*dbitrate_const);
+		__u32 dbitrate = 0;
+
+		if (tb[IFLA_CAN_DATA_BITTIMING]) {
+			struct can_bittiming *dbt =
+			    RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING]);
+			dbitrate = dbt->bitrate;
+		}
+
+		fprintf(f, "\n	  dbitrate %u [", dbitrate);
+
+		for (i = 0; i < dbitrate_cnt - 1; ++i)
+			fprintf(f, "%u, ", dbitrate_const[i]);
+
+		fprintf(f, "%u]", dbitrate_const[i]);
+	}
+
 	if (tb[IFLA_CAN_TERMINATION_CONST] && tb[IFLA_CAN_TERMINATION]) {
 		__u16 *trm = RTA_DATA(tb[IFLA_CAN_TERMINATION]);
 		__u16 *trm_const = RTA_DATA(tb[IFLA_CAN_TERMINATION_CONST]);
-		int i, trm_cnt = RTA_PAYLOAD(tb[IFLA_CAN_TERMINATION_CONST]) / sizeof(*trm_const);
-		
+		int i, trm_cnt = RTA_PAYLOAD(tb[IFLA_CAN_TERMINATION_CONST]) /
+				 sizeof(*trm_const);
+
 		fprintf(f, "\n	  termination %hu [", *trm);
 
 		for (i = 0; i < trm_cnt - 1; ++i)
